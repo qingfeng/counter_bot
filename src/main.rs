@@ -14,9 +14,9 @@ static COUNTER: AtomicUsize  = AtomicUsize::new(0);
 #[derive(BotCommands)]
 #[command(rename = "lowercase", description = "These commands are supported:")]
 enum Command {
-    #[command(description = "Display this text")]
+    #[command(description = "Click the Add button and start counting, it's that simple.")]
     Help,
-    #[command(description = "Start")]
+    #[command(description = "Start & Restart the counter.")]
     Start,
 }
 
@@ -48,10 +48,10 @@ async fn message_handler(
     if let Some(text) = m.text() {
         match BotCommands::parse(text, "buttons") {
             Ok(Command::Help) => {
-                // Just send the description of all commands.
                 bot.send_message(m.chat.id, Command::descriptions().to_string()).await?;
             }
             Ok(Command::Start) => {
+                COUNTER.store(0, Ordering::SeqCst);
                 bot.send_message(m.chat.id, "0000").reply_markup(make_keyboard()).await?;
             }
 
@@ -68,24 +68,20 @@ async fn callback_handler(
     q: CallbackQuery,
     bot: AutoSend<Bot>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    if let Some(version) = q.data {
-        COUNTER.fetch_add(1, Ordering::Relaxed);
-        let text = format!("You chose: {}", COUNTER.load(Ordering::Relaxed));
-
-        match q.message {
-            Some(Message { id, chat, .. }) => {
-                log::info!("text1: {}", text);
-                bot.edit_message_text(chat.id, id, text).reply_markup(make_keyboard()).await?;
-            }
-            None => {
-                log::info!("text2: {}", text);
-                if let Some(id) = q.inline_message_id {
-                    bot.edit_message_text_inline(id, text).reply_markup(make_keyboard()).await?;
+    if let Some(data) = q.data {
+        if data == "Add" {
+            COUNTER.fetch_add(1, Ordering::Relaxed);
+            let text = format!("{:04}", COUNTER.load(Ordering::Relaxed));
+            match q.message {
+                Some(Message { id, chat, .. }) => {
+                    log::debug!("text: {}", text);
+                    bot.edit_message_text(chat.id, id, text).reply_markup(make_keyboard()).await?;
+                }
+                None => {
+                    log::debug!("text: {}", text);
                 }
             }
         }
-
-        log::info!("You chose: {}", version);
     }
 
     Ok(())
