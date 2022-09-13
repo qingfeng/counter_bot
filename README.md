@@ -1,1 +1,7 @@
-# counter_bot
+# INSTALL
+
+```
+export TELOXIDE_TOKEN=<bot_token>
+cargo build
+cargo run
+```
